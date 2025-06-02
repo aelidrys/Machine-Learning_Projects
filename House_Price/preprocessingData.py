@@ -13,6 +13,7 @@ def wescr(column):
 
 def outleir_treatment(df: pd.DataFrame):
     # int features outlier treatment
+    # df = df.copy()
     columns = df.select_dtypes(include="int64").columns
     for i in columns:
         df[i] = df[i].astype(float)  # Convert int64 to float64 for consistency
@@ -28,15 +29,19 @@ def outleir_treatment(df: pd.DataFrame):
         lw, uw = wescr(df[i])
         df.loc[df[i] < lw, i] = lw
         df.loc[df[i] > uw, i] = uw
+    # return df
 
 
 def encoding_data(df, test):
+    
     df = df.copy()
     test = test.copy()
+    # training data encoding
     label_encoder = LabelEncoder()
     for col in df.select_dtypes(include="object").columns:
         df[col] = label_encoder.fit_transform(df[col])
-
+        
+    # test data encoding
     label_encoder = LabelEncoder()
     for col in test.select_dtypes(include="object").columns:
         test[col] = label_encoder.fit_transform(test[col])
@@ -51,8 +56,9 @@ def missing_values_treatment(df, test):
     # Use Mean or Median or Mode to fill the remaining missing values or None Available
     df.loc[:, 'LotFrontage'] = df['LotFrontage'].fillna(df['LotFrontage'].mean())
     df.loc[:, 'MasVnrArea'] = df['MasVnrArea'].fillna(df['MasVnrArea'].mean())
-    df.loc[:, 'Electrical'] = df['Electrical'].fillna("SBrkr")
-    df.loc[:, 'GarageYrBlt'] = df['GarageYrBlt'].fillna(2005.0)
+    df.fillna(df.mode().iloc[0], inplace=True)
+    # df.loc[:, 'Electrical'] = df['Electrical'].fillna("SBrkr")
+    # df.loc[:, 'GarageYrBlt'] = df['GarageYrBlt'].fillna(2005.0)
     df.fillna({'GarageType': 'NA', 'GarageFinish': 'NA', 'GarageQual': 'NA', 'GarageCond': 'NA'}, inplace=True)
     df.fillna({'BsmtQual': 'NA', 'BsmtCond': 'NA', 'BsmtExposure': 'NA',
                'BsmtFinType1': 'NA', 'BsmtFinType2': 'NA'}, inplace=True)
@@ -69,14 +75,20 @@ def missing_values_treatment(df, test):
 
 def selected_features(df,test):
 
+    df = df.copy()
+    test = test.copy()
     # Select Features based on correlation with SalePrice
     corr = df.corr()
-    selected_columns = corr[(corr.iloc[-1]>0.20) | (corr.iloc[-1]<-0.20)].index
-    selected_columns.shape
+    selected_columns = corr[abs(corr.iloc[-1])>0.25].index
     df = df[selected_columns]
-    test_id = test[['Id']]
-    test = test[df.drop(columns='SalePrice').columns]
-    return test_id
+    # print(f"Correlation with SalePrice befor selecting: size => {test.columns.shape}")
+    selected_columns = selected_columns[selected_columns != 'SalePrice']
+    test_id = test['Id']
+    test = test[selected_columns]
+    test.loc[:,'Id'] = test_id
+    # print(f"Correlation with SalePrice befor selecting: size => {test.columns.shape}")
+
+    return df, test
 
 
 
@@ -92,6 +104,6 @@ def preprocess_data(df,test):
     df, test = encoding_data(df, test)
 
     # Selected Features
-    test_id = selected_features(df, test)
-    
-    return df, test, test_id
+    df, test = selected_features(df, test)
+
+    return df, test

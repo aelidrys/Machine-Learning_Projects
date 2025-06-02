@@ -2,10 +2,10 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression, Lasso, Ridge
 from sklearn.preprocessing import MinMaxScaler, PolynomialFeatures
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 import argparse
-from sklearn.metrics import mean_squared_error, r2_score
-
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import r2_score
 # Localy
 from preprocessingData import preprocess_data
 
@@ -13,65 +13,76 @@ from preprocessingData import preprocess_data
 
 parcer = argparse.ArgumentParser(description='ArgumentParser')
 parcer.add_argument('--alpha', type=float, default=1)
-parcer.add_argument('--degree', type=int, default=3)
+parcer.add_argument('--degree', type=int, default=2)
+parcer.add_argument('--randomState', type=int, default=42)
 args = parcer.parse_args()
 alpha_ = args.alpha
 degree_ = args.degree
+randomState = args.randomState
 
 
 # Load Data from csv files
 df = pd.read_csv('data/HPrice_train.csv')
+df = df.drop(columns=['Id'], axis=1)  # Drop Id column from training data
 test = pd.read_csv('data/HPrice_test.csv')
-test_y = pd.read_csv('data/HPrice_target.csv')
+target = pd.read_csv('data/HPrice_target.csv')
 
 
 # Preprocessing Data
-df, test, test_id = preprocess_data(df, test)
+df, test = preprocess_data(df, test)
 
 
 # Training
-df_y = df["SalePrice"]
-df_x = df.drop(columns=["SalePrice"], axis=1)
+df_y = np.array(df["SalePrice"]).reshape(-1, 1)
+df_x = np.array(df.drop(columns=["SalePrice"], axis=1)).reshape(1460, df.shape[1] - 1)
+print(f"Train Dataset shape: {df_x.shape}")
 
-df_x = PolynomialFeatures(degree=degree_).fit_transform(df_x)
+
+# Polynomial Features
+# poly = PolynomialFeatures(degree=degree_)
+# df_x = poly.fit_transform(df_x)
+
 
 # Train test split
-X_train, X_val, y_train, y_test = train_test_split(df_x, df_y, test_size=0.30, random_state=15) 
-print("X_train.shape : ", X_train.shape)
-print("y_train.shape: ", y_train.shape)
-print("X_val.shape: ", X_val.shape)
-print("y_test.shape: ", y_test.shape)
+# X_train, X_val, y_train, y_val = train_test_split(df_x, df_y, test_size=0.20, random_state=randomState) 
 
-# Scaling
-scaler = MinMaxScaler().fit(X_train)
-X_train = scaler.transform(X_train)
 
-# fit LinearRegression model
-linearReg = Ridge(fit_intercept=True, alpha=alpha_).fit(X_train, y_train)
+X_train, y_train = df_x, df_y
 
-print("train Dataset")
-print(f'\tscore: {linearReg.score(X_train, y_train)}')
 
+model = Pipeline([
+    ('poly', PolynomialFeatures(degree=degree_)),
+    ('scaler', MinMaxScaler()),
+    ('ridge', Ridge(fit_intercept=True, alpha=alpha_))
+])
+
+
+# Fit the model
+model.fit(X_train, y_train)
+
+print("Training Dataset")
+print(f'\tscore: {model.score(X_train, y_train)}')
+# exit()
+
+# # Validation
+# X_val = scaler.transform(X_val)
+# y_predict = linearReg.predict(X_val)
+
+
+# print("\n\nValidation Dataset")
+# print(f'\tscore: {linearReg.score(X_val, y_val)}')
 
 # Testing
-X_val = scaler.transform(X_val)
-y_predict = linearReg.predict(X_val)
+print("\n\nTesting Dataset")
+X_test = np.array(test.drop(columns=['Id'], axis=1))
+y_test = np.array(target['SalePrice'])
+
+# X_test = poly.fit_transform(X_test)
+# X_test = scaler.transform(X_test)
+
+predict = model.predict(X_test)
 
 
-print("\n\ntest Dataset")
-print(f'\tscore: {linearReg.score(X_val, y_test)}')
-
-
-test_x = np.array(test)
-test_x = PolynomialFeatures(degree=degree_).fit_transform(test_x)
-test_x = scaler.transform(test_x)
-
-predict = linearReg.predict(np.array(test_x))
-
-
-
-test_target = np.array(test_y['SalePrice'])
-
-r2 = r2_score(test_target, predict)
+r2 = r2_score(y_test, predict)
 print(f'Final Test')
 print(f'\tscore: {r2}')

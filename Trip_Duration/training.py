@@ -20,15 +20,14 @@ args = parcer.parse_args()
 train = args.train
 degree_ = args.degree
 
-# # Load data
-# df = pd.read_csv('processed_train.csv')
-# val_df = pd.read_csv('processed_val.csv')
 
-# Preprocess data
+# Load & Preprocess data
 df, val_df = data_preprocess()
 
+
+# Training
 def training(df, val_df, degree_):
-    # Training
+
     X_train = np.array(df.drop(columns='trip_duration'))
     Y_train = np.array(df['trip_duration'])
 

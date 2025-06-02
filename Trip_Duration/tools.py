@@ -1,5 +1,6 @@
 import numpy as np
 
+# outlier treatment function
 def wescr(column):
     q1, q3 = np.percentile(column, [25,75])
     iqr = q3 - q1
